@@ -19,6 +19,13 @@ app.get('/',(req,res) => {
 app.get('/login',(req,res) => {
     res.render('login');
 })
+
+app.get('/profile', isloggedin , async (req,res) => {
+    let user = await userModel.findOne({email : req.user.email}).populate('posts');
+    //we are getting the user so we can send the user to the profile page for viewing it
+    res.render('profile',{user});
+})
+
 app.post('/register', async (req,res) => {
     let {email, password, username, age , name} = req.body;
     let user = await userModel.findOne({email : email});
@@ -52,9 +59,48 @@ app.post('/login', async (req,res) => {
     //if user is not present he can't simply log in 
 
     bcrypt.compare(password,user.password,(err,result) =>{
-        if(result) res.status(200).send('you can login!!');
+        if(result){
+            let token = jwt.sign({email : email , userid : user._id}, "shhhh");
+            res.cookie('token',token);
+            res.status(200).redirect('/profile');
+        }
         else res.redirect('/login');
     })
 })
+
+//logout route
+app.get('/logout',(req,res) => {
+    res.cookie('token',"")
+    res.redirect('/login');
+})
+
+//creating a middleware for the protected routes it will only allow to do the furtehr tasks if the user is already logged in
+function isloggedin(req,res,next){
+    //if this opens to a new url there will be no cookie so it will ask to sign in first
+    if(req.cookies.token === "") res.redirect('/login');
+    else {
+        //compare the token got as per the password 
+        let data = jwt.verify(req.cookies.token,"shhhh");
+        //creating a request field and feeding the data user into it {email and password}
+        req.user = data;
+    }
+    next();
+}
+
+//route to create a post
+app.post('/post', isloggedin ,async (req,res) => {
+    let user =await userModel.findOne({email : req.user.email});
+    let {content}=req.body;
+    let post = await postModel.create({
+        user : user._id,
+        content : content,
+    })
+    //now informing the user about its post
+    user.posts.push(post._id);
+    await user.save();
+    res.redirect('/profile');
+
+})
+
 
 app.listen(3000);
