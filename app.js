@@ -25,6 +25,44 @@ app.get('/profile', isloggedin , async (req,res) => {
     //we are getting the user so we can send the user to the profile page for viewing it
     res.render('profile',{user});
 })
+//setting up the like button
+app.get('/like/:id', isloggedin , async (req,res) => {
+    let post = await postModel.findOne({_id : req.params.id}).populate('user');
+
+    if(post.likes.indexOf(req.user.userid) === -1){
+        post.likes.push(req.user.userid);
+    }else{
+        post.likes.splice(post.likes.indexOf(req.user.userid),1);
+        //else remove one element 
+    }
+    //save the config in both the cases
+    await post.save();
+    res.redirect('/profile');
+})
+//setiing up the edit functionality
+app.get('/edit/:id', isloggedin , async (req,res) => {
+    let post = await postModel.findOne({_id : req.params.id}).populate('user');
+    res.render('edit',{post});
+})
+
+//dong the changes that are updated
+app.post('/update/:id', isloggedin , async (req,res) => {
+    let post = await postModel.findOneAndUpdate({_id : req.params.id}, {content : req.body.content});
+    res.redirect('/profile');
+})
+
+//setting up the deletion route
+app.post('/delete/:id', isloggedin , async (req,res) => {
+    let post = await postModel.findOne({_id: req.params.id});
+
+    if (post.user.toString() !== req.user.userid) {
+        return res.status(403).send("Unauthorized");
+    }
+
+    await postModel.findByIdAndDelete(req.params.id);
+    res.redirect('/profile');
+});
+
 
 app.post('/register', async (req,res) => {
     let {email, password, username, age , name} = req.body;
