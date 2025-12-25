@@ -5,11 +5,14 @@ const userModel = require('./models/user');
 const postModel = require('./models/post');
 const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
+const path = require('path');
+const upload = require('./config/multerconfig');
+
 
 app.set('view engine','ejs');
 app.use(express.json());
 app.use(express.urlencoded({extended:true}));
-
+app.use(express.static(path.join(__dirname,'public')));
 app.use(cookieParser());
 
 
@@ -140,5 +143,17 @@ app.post('/post', isloggedin ,async (req,res) => {
 
 })
 
+//route to upload the profile pic
+app.get('/profile/upload',(req,res) => {
+    res.render('profilepic');
+})
+
+app.post('/upload', isloggedin ,upload.single('image'),async (req,res) => {
+    //finding the user first 
+    let user = await userModel.findOne({email : req.user.email});
+    user.profilepic = req.file.filename;
+    await user.save();
+    res.redirect('/profile');
+})
 
 app.listen(3000);
